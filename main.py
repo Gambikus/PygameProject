@@ -5,7 +5,7 @@ import sys
 
 FPS = 60
 pygame.init()
-size = width, height = 448, 448
+size = width, height = 448, 576
 screen = pygame.display.set_mode(size)
 screen.fill((0, 30, 0))
 clock = pygame.time.Clock()
@@ -58,6 +58,7 @@ def start_screen():
                   "направление мяча",
                   "И запустите мяч с помощью ЛКМ.",
                   "Нажмите любую клавишу для начала"]
+    intro_levels = ['Первый уровень', "Второй уровень", "Третий уровень", "Четвертый уровень"]
 
     fon = load_image('fon.jpg')
     screen.blit(fon, (0, 0))
@@ -67,26 +68,40 @@ def start_screen():
         string_rendered = font.render(line, 1, pygame.Color('blue'))
         intro_rect = string_rendered.get_rect()
         text_coord += 10
-        intro_rect.top = text_coord
-        intro_rect.x = 10
+        intro_rect.y = text_coord
+        intro_rect.x = 50
         text_coord += intro_rect.height
         screen.blit(string_rendered, intro_rect)
+    y = text_coord + 30
+    text_coord2 = 20
+    level_coords = []
+    for line in intro_levels:
+        level_coords.append([text_coord2, y])
+        for word in line.split():
+            string_rendered = font.render(word, 1, pygame.Color('blue'))
+            intro_rect = string_rendered.get_rect()
+            intro_rect.y = y
+            y += 10 + intro_rect.height
+            intro_rect.x = text_coord2
+            screen.blit(string_rendered, intro_rect)
+        text_coord2 += font.render(word, 1, pygame.Color('blue')).get_rect().width
+        level_coords[-1].append(text_coord2)
+        level_coords[-1].append(y)
+        text_coord2 += 15
+        y = y - 20 - 2 * font.render(word, 1, pygame.Color('blue')).get_rect().height
 
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                return  # начинаем игру
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                for i in level_coords:
+                    if i[0] < event.pos[0] < i[2] and i[1] < event.pos[1] < i[3]:
+                        return levels[level_coords.index(i)]
         pygame.display.flip()
         clock.tick(FPS)
 
 
-
-
-start_screen()
-level = 1
 victim_image = load_image("victimBall.png")
 arrow_image = load_image("arrow.png")
 arrow_image = pygame.transform.scale(arrow_image, (100, 25))
@@ -95,6 +110,7 @@ all_sprites = pygame.sprite.Group()
 victims = pygame.sprite.Group()
 horizontal_borders = pygame.sprite.Group()
 vertical_borders = pygame.sprite.Group()
+levels = [load_level("firstLevel"), load_level("secondLevel"), load_level("thirdLevel"), load_level("fourthLevel")]
 
 
 class Border(pygame.sprite.Sprite):
@@ -138,6 +154,13 @@ class HunterBall(pygame.sprite.Sprite):
         for i in victims:
             if pygame.sprite.collide_mask(self, i):
                 i.kill()
+
+    def stop(self):
+        self.prevX, self.prevY = self.vx, self.vy
+        self.vx, self.vy = 0, 0
+
+    def run(self):
+        self.vx, self.vy = self.prevX, self.prevY
 
 
 # class GuideArrow(pygame.sprite.Sprite):
@@ -200,7 +223,7 @@ def generate_level(level):
             elif level[y][x] == '-':
                 Border(x * 64, y * 64, x * 64, y * 64 + 64)
             elif level[y][x] == 'v':
-                VictimBall(x * 64, y * 64)
+                VictimBall(x * 64 + 16, y * 64 + 16)
             elif level[y][x] == 'g':
                 arrows.append(HunterBall(x * 64, y * 64))
                 x1, y1 = x, y
@@ -208,9 +231,9 @@ def generate_level(level):
 
 
 def restart():
-    intro_text = ["Поздравляем, Вы выиграли!", "",
+    intro_text = ["Поздравляем, Вы прошли уровень!", "",
                   "Нажмите любую кнопку,",
-                  " чтобы начать заново"]
+                  " чтобы перейти к выбору уровня."]
 
     fon = load_image('fon.jpg')
     screen.blit(fon, (0, 0))
@@ -236,8 +259,52 @@ def restart():
         clock.tick(FPS)
 
 
-x, y = generate_level(load_level("firstLevel"))
+def menu():
+    intro_text = ["ПАУЗА", "",
+                  "НАЧАТЬ ЗАНОВО",
+                  "ПРОДОЛЖИТЬ",
+                  "ВЫБРАТЬ ДРУГОЙ УРОВЕНЬ"]
+
+    buttons_coords = []
+    fon = load_image('fon.jpg')
+    screen.blit(fon, (0, 0))
+    font = pygame.font.Font(None, 30)
+    text_coord = 50
+    for line in intro_text:
+        string_rendered = font.render(line, 1, pygame.Color('blue'))
+        intro_rect = string_rendered.get_rect()
+        text_coord += 10
+        intro_rect.top = text_coord
+        intro_rect.x = 10
+        text_coord += intro_rect.height
+        screen.blit(string_rendered, intro_rect)
+        if line != "ПАУЗА" and line != "":
+            buttons_coords.append([10, intro_rect.top, 10 + intro_rect.width, text_coord])
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                for i in buttons_coords:
+                    if i[0] <= event.pos[0] <= i[2] and i[1] <= event.pos[1] <= i[3]:
+                        if buttons_coords.index(i) == 0:
+                            return -1
+                        elif buttons_coords.index(i) == 1:
+                            for i in arrows:
+                                i.run()
+                            return 0
+                        else:
+                            return 1
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+level = start_screen()
+x, y = generate_level(level)
 k = 0
+numberOfBalls = 3
 running = True
 going = False
 while running:
@@ -246,19 +313,51 @@ while running:
             running = False
         if event.type == pygame.MOUSEBUTTONDOWN:
             pos = pygame.mouse.get_pos()
-            sin_angle = (pos[1] - arrows[k].rect.y - arrows[k].rect.height // 2) / \
-                        (((pos[1] - arrows[k].rect.y - arrows[k].rect.height // 2) ** 2 + (
-                                pos[0] - arrows[k].rect.x - arrows[k].rect.width // 2) ** 2) ** .5 + 1)
-            cos_angle = (pos[0] - arrows[k].rect.x - arrows[k].rect.width // 2) / \
-                        (((pos[1] - arrows[k].rect.y - arrows[k].rect.height // 2) ** 2 + (
-                                pos[0] - arrows[k].rect.x - arrows[k].rect.width // 2) ** 2) ** .5 + 1)
-            arrows[k].changeangle(cos_angle, sin_angle)
-            arrows.append(HunterBall(x * 64, y * 64))
-            k += 1
+            if numberOfBalls != 0:
+                sin_angle = (pos[1] - arrows[k].rect.y - arrows[k].rect.height // 2) / \
+                            (((pos[1] - arrows[k].rect.y - arrows[k].rect.height // 2) ** 2 + (
+                                    pos[0] - arrows[k].rect.x - arrows[k].rect.width // 2) ** 2) ** .5 + 1)
+                cos_angle = (pos[0] - arrows[k].rect.x - arrows[k].rect.width // 2) / \
+                            (((pos[1] - arrows[k].rect.y - arrows[k].rect.height // 2) ** 2 + (
+                                    pos[0] - arrows[k].rect.x - arrows[k].rect.width // 2) ** 2) ** .5 + 1)
+                arrows[k].changeangle(cos_angle, sin_angle)
+                arrows.append(HunterBall(x * 64, y * 64))
+                k += 1
+                numberOfBalls -= 1
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                for i in arrows:
+                    i.stop()
+                decision = menu()
+                if decision == -1:
+                    all_sprites = pygame.sprite.Group()
+                    victims = pygame.sprite.Group()
+                    horizontal_borders = pygame.sprite.Group()
+                    vertical_borders = pygame.sprite.Group()
+                    arrows = []
+                    x, y = generate_level(level)
+                    k = 0
+                    numberOfBalls = 3
+                elif decision == 1:
+                    all_sprites = pygame.sprite.Group()
+                    victims = pygame.sprite.Group()
+                    horizontal_borders = pygame.sprite.Group()
+                    vertical_borders = pygame.sprite.Group()
+                    arrows = []
+                    level = start_screen()
+                    x, y = generate_level(level)
+                    k = 0
+                    numberOfBalls = 3
     for arrow in arrows:
         if arrow.vx != 0:
             arrow.update()
     all_sprites.draw(screen)
+    font = pygame.font.Font(None, 30)
+    string_rendered = font.render("Мячей: " + str(numberOfBalls), 1, pygame.Color('blue'))
+    intro_rect = string_rendered.get_rect()
+    intro_rect.y = 64 * 7 + 32
+    intro_rect.x = 10
+    screen.blit(string_rendered, intro_rect)
     isPlayerWin = True
     for i in victims:
         isPlayerWin = False
@@ -269,8 +368,10 @@ while running:
         horizontal_borders = pygame.sprite.Group()
         vertical_borders = pygame.sprite.Group()
         arrows = []
-        x, y = generate_level(load_level("firstLevel"))
+        level = start_screen()
+        x, y = generate_level(level)
         k = 0
+        numberOfBalls = 3
     pygame.display.flip()
     screen.fill((100, 30, 0))
     clock.tick(20)
